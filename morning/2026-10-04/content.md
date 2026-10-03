@@ -1,4 +1,4 @@
-# Carrousel du matin — 04/10/2026 (TEST, non publié)
+# Carrousel du matin — 04/10/2026 (publié le 03/10)
 
 **Thème :** «Мне нужно подумать» — что ответить клиенту (sujet n°8 du brief)
 **Compte :** терекбаев (17841400884494958)
@@ -26,4 +26,4 @@ Aperçu : https://d2ol7oe51mr4n9.cloudfront.net/user_3KBBG4pKsglLEj5jz04i4ZaBs7t
 - Photos vérifiées une par une : pas de texte, pas de faux tickets, pas de photo de Beslan
 - Légende : 7 parties + 8 hashtags, CTA unique « БРОКЕР » en Direct
 
-**Statut : en attente de validation — rien n'est publié.**
+**Statut : publié le 03/10/2026 sur терекбаев — https://www.instagram.com/p/DeB7wDAkWz7/ (media id 18019460333728293)**
