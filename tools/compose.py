@@ -170,9 +170,25 @@ def footer(canvas):
     canvas.alpha_composite(band)
 
 
+NBSP = " "
+SHORT = {"а", "в", "и", "к", "о", "с", "у", "я", "во", "на", "по", "за", "до", "не", "из", "от", "об", "со", "ко"}
+
+
+def typo(text):
+    """Russian typesetting: no dash at line start, no short word left at line end."""
+    text = text.replace(" — ", NBSP + "— ")
+    words = text.split(" ")
+    out = []
+    for i, w_ in enumerate(words):
+        out.append(w_)
+        if i < len(words) - 1:
+            out.append(NBSP if w_.lower().strip("«»") in SHORT else " ")
+    return "".join(out)
+
+
 def wrap(d, text, font, width):
     out = []
-    for para in text.split("\n"):
+    for para in typo(text).split("\n"):
         words, line = para.split(" "), ""
         for w_ in words:
             test = (line + " " + w_).strip()
