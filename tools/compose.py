@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 """Compose StepDream morning carousel slides (1080x1350 JPEG).
 
-Usage: python3 compose.py SPEC.json FONTS_DIR LOGO_REF PHOTOS_DIR OUT_DIR
+Usage: python3 compose.py SPEC.json FONTS_DIR LOGO_REF PHOTOS_DIR OUT_DIR [PORTRAIT]
 Photos: PHOTOS_DIR/pN.png (N = slide number). Text is rendered from real fonts,
 so the Russian text is always exact.
+
+PORTRAIT = refs/beslan-circle.jpg (photo de Беслан avec le logo STEP DREAM).
+Règle de l'utilisateur (07/10/2026) : la slide 1 porte TOUJOURS le rond avec
+cette photo et le nom « Беслан Терекбаев » dessous, et la dernière slide est
+TOUJOURS la slide d'abonnement ("kind": "subscribe").
 """
 import json, os, sys, math, random
 from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageChops
@@ -17,7 +22,12 @@ GREY = (104, 100, 122)
 MARGIN = 72
 
 spec_path, fonts_dir, logo_ref, photos_dir, out_dir = sys.argv[1:6]
+portrait_path = sys.argv[6] if len(sys.argv) > 6 else os.path.join(os.path.dirname(os.path.abspath(logo_ref)), "beslan-circle.jpg")
 os.makedirs(out_dir, exist_ok=True)
+
+# Rond photo de la slide 1 (fixe, validé le 07/10/2026)
+CIRCLE_X, CIRCLE_Y, CIRCLE_D = 640, 196, 380
+PORTRAIT_NAME = "Беслан Терекбаев"
 
 
 def vfont(name, size, **axes):
@@ -202,14 +212,15 @@ def wrap(d, text, font, width):
     return out
 
 
-def draw_title(canvas, x, y, lines, size, gap=0.98):
+def draw_title(canvas, x, y, lines, size, gap=0.98, max_w=None):
     d = ImageDraw.Draw(canvas)
     f = title_font(size)
+    max_w = max_w or (W - 2 * MARGIN)
     for item in lines:
         txt, col = item["t"], PURPLE if item.get("c") == "p" else INK
         s = item.get("s", size)
         ff = title_font(s) if s != size else f
-        while d.textlength(txt, font=ff) > W - 2 * MARGIN and s > 40:
+        while d.textlength(txt, font=ff) > max_w and s > 40:
             s -= 2
             ff = title_font(s)
         d.text((x, y), txt, font=ff, fill=col)
@@ -306,10 +317,10 @@ def card(canvas, x, y, w, text, size=34, icon="chat", weight=400):
     return y + h
 
 
-def rows(canvas, x, y, items, width, size=36, r=40, gap=34):
+def rows(canvas, x, y, items, width, size=36, r=40, gap=34, bold=False):
     for it in items:
         d = ImageDraw.Draw(canvas)
-        f = body_font(size, 400)
+        f = body_font(size, 700 if bold else 400)
         fb = body_font(size, 700)
         tx = x + 2 * r + 28
         head, rest = it.get("b", ""), it.get("t", "")
@@ -317,7 +328,7 @@ def rows(canvas, x, y, items, width, size=36, r=40, gap=34):
         if head:
             lines.append((head, fb, PURPLE))
         for ln in wrap(d, rest, f, width - (tx - x)):
-            lines.append((ln, f, INK))
+            lines.append((ln, f, PURPLE if bold else INK))
         lh = int(size * 1.3)
         block = len(lines) * lh
         cy = y + max(block, 2 * r) // 2
@@ -330,7 +341,7 @@ def rows(canvas, x, y, items, width, size=36, r=40, gap=34):
     return y
 
 
-def button(canvas, x, y, text):
+def button(canvas, x, y, text, plus=False):
     d = ImageDraw.Draw(canvas)
     f = body_font(44, 500)
     tw = d.textlength(text, font=f)
@@ -344,8 +355,12 @@ def button(canvas, x, y, text):
     d.text((x + 50, y + h / 2), text, font=f, fill=(255, 255, 255), anchor="lm")
     cx, cy, r = x + w - 16 - 42, y + h // 2, 38
     d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(255, 255, 255))
-    d.line([(cx - 16, cy), (cx + 14, cy)], fill=PURPLE, width=6)
-    d.line([(cx + 2, cy - 13), (cx + 15, cy), (cx + 2, cy + 13)], fill=PURPLE, width=6, joint="curve")
+    if plus:
+        d.line([(cx - 15, cy), (cx + 15, cy)], fill=PURPLE, width=6)
+        d.line([(cx, cy - 15), (cx, cy + 15)], fill=PURPLE, width=6)
+    else:
+        d.line([(cx - 16, cy), (cx + 14, cy)], fill=PURPLE, width=6)
+        d.line([(cx + 2, cy - 13), (cx + 15, cy), (cx + 2, cy + 13)], fill=PURPLE, width=6, joint="curve")
 
 
 def brush(canvas, x, y, w, h, text, size=46):
@@ -371,13 +386,66 @@ def brush(canvas, x, y, w, h, text, size=46):
     d.text((x + w / 2, y + h / 2), text, font=f, fill=(255, 255, 255), anchor="mm")
 
 
+def portrait(canvas):
+    """Rond avec la photo de Беслан (logo STEP DREAM dedans) + nom dessous."""
+    x, y, D = CIRCLE_X, CIRCLE_Y, CIRCLE_D
+    inner = D - 32          # disque blanc
+    photo_d = inner - 20    # photo (bordure blanche de 10 px)
+    ox, oy = x + (D - inner) // 2, y + (D - inner) // 2
+    sh = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+    ImageDraw.Draw(sh).ellipse([ox, oy + 18, ox + inner, oy + inner + 18], fill=(40, 20, 110, 95))
+    canvas.alpha_composite(sh.filter(ImageFilter.GaussianBlur(24)))
+    d = ImageDraw.Draw(canvas)
+    d.ellipse([x, y, x + D - 1, y + D - 1], outline=PURPLE, width=4)
+    d.ellipse([ox, oy, ox + inner - 1, oy + inner - 1], fill=(255, 255, 255))
+    ph = cover_fit(Image.open(portrait_path).convert("RGB"), photo_d * 2, photo_d * 2)
+    m = Image.new("L", (photo_d * 2, photo_d * 2), 0)
+    ImageDraw.Draw(m).ellipse([0, 0, photo_d * 2 - 1, photo_d * 2 - 1], fill=255)
+    ph = ph.resize((photo_d, photo_d), Image.LANCZOS)
+    m = m.resize((photo_d, photo_d), Image.LANCZOS)
+    canvas.paste(ph, (ox + 10, oy + 10), m)
+    # nom sous le rond
+    f = vfont("Oswald[wght].ttf", 32, wght=500)
+    tw = d.textlength(PORTRAIT_NAME, font=f)
+    pw, phh = int(tw + 56), 58
+    px0, py0 = x + D // 2 - pw // 2, y + D + 22
+    sh = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+    ImageDraw.Draw(sh).rounded_rectangle([px0, py0 + 8, px0 + pw, py0 + phh + 8], radius=phh // 2, fill=(40, 20, 110, 60))
+    canvas.alpha_composite(sh.filter(ImageFilter.GaussianBlur(10)))
+    d = ImageDraw.Draw(canvas)
+    d.rounded_rectangle([px0, py0, px0 + pw, py0 + phh], radius=phh // 2, fill=(255, 255, 255))
+    d.text((px0 + pw / 2, py0 + phh / 2), PORTRAIT_NAME, font=f, fill=PURPLE, anchor="mm")
+
+
+# Dernière slide : abonnement (fixe, validée le 07/10/2026). Le texte ne change pas.
+SUBSCRIBE = {
+    "layout": "right", "photo_x": 560, "fx": 0.5, "title_y": 250, "title_size": 96, "title_w": 620, "text_w": 600,
+    "title": [{"t": "ПОДПИШИСЬ,"}, {"t": "ЧТОБЫ НЕ", "c": "p"}, {"t": "ПРОПУСТИТЬ", "c": "p"}],
+    "blocks": [
+        {"k": "text", "t": "Каждый день здесь выходит новое бесплатное обучение для брокеров.", "size": 36, "w": 600, "pad": 34},
+        {"k": "rows", "pad": 34, "size": 34, "r": 26, "gap": 16, "w": 640, "bold": True, "items": [
+            {"i": "check", "t": "Бесплатно"},
+            {"i": "check", "t": "Новый урок каждое утро"},
+            {"i": "check", "t": "Практика, а не теория"}
+        ]},
+        {"k": "button", "t": "Подписаться", "y": 1110, "plus": True}
+    ]
+}
+
+
 def render(slide, total):
+    if slide.get("kind") == "subscribe":
+        slide = dict(SUBSCRIBE, n=slide["n"], **{k: v for k, v in slide.items() if k in ("photo_x", "fx", "fy")})
     c = background()
     place_photo(c, slide)
     header(c, slide["n"], total)
+    first = slide["n"] == 1
+    if first:
+        portrait(c)
     y = slide.get("title_y", 300)
     tw = slide.get("text_w", W - 2 * MARGIN)
-    y = draw_title(c, MARGIN, y, slide["title"], slide.get("title_size", 92))
+    y = draw_title(c, MARGIN, y, slide["title"], slide.get("title_size", 92),
+                   max_w=slide.get("title_w", CIRCLE_X - MARGIN - 30 if first else None))
     for blk in slide.get("blocks", []):
         y += blk.get("pad", 34)
         k = blk["k"]
@@ -386,9 +454,9 @@ def render(slide, total):
         elif k == "card":
             y = card(c, MARGIN, y, blk.get("w", W - 2 * MARGIN), blk["t"], blk.get("size", 34), blk.get("i", "chat"), blk.get("weight", 400))
         elif k == "rows":
-            y = rows(c, MARGIN, y, blk["items"], blk.get("w", tw), blk.get("size", 36), blk.get("r", 40), blk.get("gap", 30))
+            y = rows(c, MARGIN, y, blk["items"], blk.get("w", tw), blk.get("size", 36), blk.get("r", 40), blk.get("gap", 30), blk.get("bold", False))
         elif k == "button":
-            button(c, MARGIN, blk.get("y", y), blk["t"])
+            button(c, MARGIN, blk.get("y", y), blk["t"], blk.get("plus", False))
         elif k == "brush":
             brush(c, MARGIN - 10, blk.get("y", y), blk.get("w", 760), 130, blk["t"])
     footer(c)
@@ -400,6 +468,10 @@ def render(slide, total):
 
 spec = json.load(open(spec_path, encoding="utf-8"))
 total = len(spec["slides"])
+if spec["slides"][-1].get("kind") != "subscribe":
+    sys.exit("ERREUR : la dernière slide doit être {\"kind\": \"subscribe\"} (règle du 07/10/2026).")
+if not os.path.exists(portrait_path):
+    sys.exit("ERREUR : photo du rond introuvable : " + portrait_path + " (refs/beslan-circle.jpg).")
 for s in spec["slides"]:
     if os.path.exists(os.path.join(photos_dir, f"p{s['n']}.png")):
         print(render(s, total))
