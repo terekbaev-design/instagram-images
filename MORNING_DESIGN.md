@@ -1,3 +1,5 @@
+> **ABANDONNÉ le 26/10/2026** — le carrousel éducatif utilise désormais EDU_DESIGN.md et tools/edu_compose.py.
+
 # Carrousel du matin — design OBLIGATOIRE
 
 Règle de l'utilisateur (05/10/2026) : le carrousel du matin (formation des brokers StepDream) a TOUJOURS ce design, sans exception :
